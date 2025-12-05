@@ -1,20 +1,48 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Edit, Trash2, Ban, CheckCircle, UserCog } from 'lucide-react'
+import { getUserInfo, getUsersList } from '../../services/userService'
+import { deleteUser } from '../../services/userService'
 
 const Utilisateurs = () => {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [users] = useState([
-    { id: 1, name: 'Jean Kouassi', email: 'jean.kouassi@example.com', role: 'Vendeur', status: 'Actif', joinDate: '2024-01-15', transactions: 45 },
-    { id: 2, name: 'Marie Diabaté', email: 'marie.diabate@example.com', role: 'Acheteur', status: 'Actif', joinDate: '2024-02-20', transactions: 23 },
-    { id: 3, name: 'Pierre Traoré', email: 'pierre.traore@example.com', role: 'Vendeur', status: 'Actif', joinDate: '2024-01-10', transactions: 67 },
-    { id: 4, name: 'Aminata Sow', email: 'aminata.sow@example.com', role: 'Acheteur', status: 'Suspendu', joinDate: '2024-03-05', transactions: 12 },
-    { id: 5, name: 'Ibrahim Koné', email: 'ibrahim.kone@example.com', role: 'Vendeur', status: 'Actif', joinDate: '2023-12-01', transactions: 89 }
-  ])
+    const [deletingId, setDeletingId] = useState(null)
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [pageSize] = useState(10)
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState("")
+  const [hasMore, setHasMore] = useState(false)
+    const [total, setTotal] = useState(0)
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const token = localStorage.getItem('token')
+        let data = await getUsersList(token, page, pageSize)
+        let usersList = data.users || []
+        const totalCount = data.total || usersList.length
+        if (search) {
+          usersList = usersList.filter(u =>
+            (u.nom && u.nom.toLowerCase().includes(search.toLowerCase())) ||
+            (u.email && u.email.toLowerCase().includes(search.toLowerCase()))
+          )
+        }
+        setUsers(usersList)
+        setTotal(totalCount)
+        setHasMore(page * pageSize < totalCount)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUsers()
+  }, [page, pageSize, search])
+
+  if (loading) return <div className="p-8 text-center">Chargement des utilisateurs...</div>
+  if (error) return <div className="p-8 text-center text-red-600">Erreur : {error}</div>
 
   return (
     <div className="space-y-6">
@@ -26,107 +54,63 @@ const Utilisateurs = () => {
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Total Utilisateurs</div>
-          <div className="text-2xl font-bold text-gray-900">2,543</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Vendeurs</div>
-          <div className="text-2xl font-bold text-blue-600">1,234</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Acheteurs</div>
-          <div className="text-2xl font-bold text-green-600">1,289</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Suspendus</div>
-          <div className="text-2xl font-bold text-red-600">20</div>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="relative w-full md:w-1/3">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <input
+            type="text"
+            placeholder="Rechercher par nom ou email..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setOffset(0); }}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-agrobloc-primary focus:border-transparent"
+          />
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="card">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Rechercher un utilisateur..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-agrobloc-primary focus:border-transparent"
-            />
-          </div>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-agrobloc-primary">
-            <option value="">Tous les rôles</option>
-            <option value="vendeur">Vendeur</option>
-            <option value="acheteur">Acheteur</option>
-            <option value="admin">Administrateur</option>
-          </select>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-agrobloc-primary">
-            <option value="">Tous statuts</option>
-            <option value="actif">Actif</option>
-            <option value="suspendu">Suspendu</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Users Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Utilisateur
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rôle
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date d'inscription
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Transactions
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Statut
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilisateur</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adresse</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date d'inscription</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
+              {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="w-10 h-10 rounded-full bg-agrobloc-primary flex items-center justify-center text-white font-bold">
-                        {user.name.charAt(0)}
+                        {(user.nom || user.email || '').charAt(0)}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-sm font-medium text-gray-900">{user.nom}</div>
                       </div>
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.numero_tel}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.adresse}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.role === 'Vendeur'
+                      user.profil_id === 1
                         ? 'bg-blue-100 text-blue-800'
+                        : user.profil_id === 2
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-purple-100 text-purple-800'
                     }`}>
-                      {user.role}
+                      {user.profil_id === 1 ? 'Vendeur' : user.profil_id === 2 ? 'Acheteur' : 'Admin'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {new Date(user.joinDate).toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.transactions}
+                    {user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR') : ''}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -154,7 +138,26 @@ const Utilisateurs = () => {
                           <CheckCircle size={18} />
                         </button>
                       )}
-                      <button className="text-red-600 hover:text-red-900" title="Supprimer">
+                      <button
+                        className="text-red-600 hover:text-red-900"
+                        title="Supprimer"
+                        disabled={deletingId === user.id}
+                        onClick={async () => {
+                          if (window.confirm('Confirmer la suppression de cet utilisateur ?')) {
+                            setDeletingId(user.id)
+                            try {
+                              const token = localStorage.getItem('token')
+                              await deleteUser(user.id, token)
+                              // Rafraîchir la liste
+                              setUsers(users.filter(u => u.id !== user.id))
+                            } catch (err) {
+                              setError(err.message)
+                            } finally {
+                              setDeletingId(null)
+                            }
+                          }
+                        }}
+                      >
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -164,6 +167,24 @@ const Utilisateurs = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="flex justify-between items-center mt-4">
+        <button
+          className="btn-secondary"
+          onClick={() => setPage(Math.max(1, page - 1))}
+          disabled={page === 1}
+        >
+          Précédent
+        </button>
+        <span className="text-gray-600">Page {page} / {Math.ceil(total / pageSize)}</span>
+        <button
+          className="btn-secondary"
+          onClick={() => setPage(page + 1)}
+          disabled={!hasMore}
+        >
+          Suivant
+        </button>
       </div>
     </div>
   )

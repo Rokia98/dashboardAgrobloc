@@ -97,7 +97,7 @@ const Layout = ({ children }) => {
                         to={item.path}
                         className={`flex items-center px-4 py-3 transition-colors ${
                           isActive
-                            ? 'bg-agrobloc-primary text-white'
+                            ? 'bg-red-500 text-white'
                             : 'text-gray-300 hover:bg-agrobloc-secondary hover:text-white'
                         }`}
                         title={!sidebarOpen ? item.name : ''}
